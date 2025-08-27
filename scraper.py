@@ -6,6 +6,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import requests
 
+webhook_url = "YOUR_WEBHOOK_URL_HERE"
+
 def scrape_fuel_prices():
     """
     Scrapes fuel prices from the specified URL.
@@ -54,15 +56,14 @@ def scrape_fuel_prices():
 
             if fuel_status or co2_status:
                 # Send a notification via webhook
-                webhook_url = "YOUR_WEBHOOK_URL"
                 message = ""
                 if fuel_status:
                     message += f"Fuel price is low: {data[1]}\n"
                 if co2_status:
                     message += f"CO2 price is low: {data[2]}\n" 
-                payload = {"text": message}
+                payload = {"content": message}
                 response = requests.post(webhook_url, json=payload)
-                if response.status_code == 200:
+                if response.status_code == 204:
                     print("Notification sent successfully.")
         else:
             print("Could not find the three data elements.")
@@ -75,6 +76,10 @@ def scrape_fuel_prices():
 
 # if __name__ == "__main__":
 #     scrape_fuel_prices()
+
+requests.post(webhook_url, json={"content": "Fuel pricer started up!"})
+
+# ON STARTUP send alert via webhook
 
 
 # have it run at the start of every half hour
