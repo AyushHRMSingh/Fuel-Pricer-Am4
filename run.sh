@@ -36,7 +36,7 @@ case "$1" in
             exit 1
         fi
         echo "Starting scraper..."
-        nohup python3 scraper.py > $LOGFILE 2>&1 &
+        nohup python scraper.py > $LOGFILE 2>&1 &
         echo $! > $PIDFILE
         echo "Scraper started with PID $(cat $PIDFILE). Log file: $LOGFILE"
         ;;
@@ -48,13 +48,26 @@ case "$1" in
         PID=$(cat $PIDFILE)
         echo "Stopping scraper (PID: $PID)..."
         kill $PID
-        # Check if the process was killed
-        if kill -0 $PID 2>/dev/null; then
-            echo "Failed to stop scraper. Trying with kill -9."
-            kill -9 $PID
+        # Wait for the process to stop
+        for i in {1..10}; do
+            if ! kill -0 $PID 2>/dev/null; then
+                rm $PIDFILE
+                echo "Scraper stopped."
+                exit 0
+            fi
+            sleep 1
+        done
+        # If it's still running, force kill
+        echo "Scraper did not stop gracefully. Trying with kill -9."
+        kill -9 $PID
+        sleep 1 # Give it a moment
+        if ! kill -0 $PID 2>/dev/null; then
+            rm $PIDFILE
+            echo "Scraper stopped forcefully."
+        else
+            echo "Failed to stop scraper."
+            exit 1
         fi
-        rm $PIDFILE
-        echo "Scraper stopped."
         ;;
     status)
         if [ ! -f $PIDFILE ]; then

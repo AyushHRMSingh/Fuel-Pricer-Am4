@@ -5,8 +5,22 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import requests
+import signal
+import sys
+import os
+from dotenv import load_dotenv
 
-webhook_url = "YOUR_WEBHOOK_URL_HERE"
+# Load environment variables from .env file
+load_dotenv()
+
+# Load configuration from environment variables
+webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+fuel_threshold = int(os.getenv('FUEL_PRICE_THRESHOLD', 400))
+co2_threshold = int(os.getenv('CO2_PRICE_THRESHOLD', 120))
+
+if not webhook_url:
+    print("Error: DISCORD_WEBHOOK_URL not found in environment variables")
+    sys.exit(1)
 
 def scrape_fuel_prices():
     """
@@ -32,11 +46,6 @@ def scrape_fuel_prices():
         # Also wait for the text to be present in the element
         wait.until(lambda driver: current_hour_element.text.strip() != "")
         
-        # Find the three text elements within the "current-hour" element
-        # Assuming the three text elements are siblings or descendants
-        # and we can find them by a common tag or class.
-        # This part might need adjustment based on the actual HTML structure.
-        
         # The data is directly within the element, separated by newlines.
         data = current_hour_element.text.split('\n')
         
@@ -49,9 +58,9 @@ def scrape_fuel_prices():
             fuel_status = False
             co2_status = False
 
-            if int(data[1]) < 400:
+            if int(data[1]) < fuel_threshold:
                 fuel_status = True
-            if int(data[2]) < 120:
+            if int(data[2]) < co2_threshold:
                 co2_status = True
 
             if fuel_status or co2_status:
@@ -74,6 +83,12 @@ def scrape_fuel_prices():
     finally:
         driver.quit()
 
+def signal_handler(sig, frame):
+    print('Stopping scraper...')
+    message = "Fuel pricer stopped."
+    os.system(f"curl -X POST -H 'Content-Type: application/json' -d '{{\"content\": \"{message}\"}}' {webhook_url}")
+    sys.exit(0)
+
 # if __name__ == "__main__":
 #     scrape_fuel_prices()
 
@@ -81,6 +96,8 @@ requests.post(webhook_url, json={"content": "Fuel pricer started up!"})
 
 # ON STARTUP send alert via webhook
 
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 
 # have it run at the start of every half hour
 import schedule
